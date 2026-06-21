@@ -511,6 +511,39 @@
 
 #### Variables and Types of variables
 
+  * **Registered Variables**
+    - One of the most powerful features in Ansible is the ability to capture the output of a task and use it later in the playbook. The register keyword stores the entire result of a task into a variable, giving you access to return codes, stdout, stderr, changed status, and module-specific data. This is essential for building playbooks that make decisions based on the actual state of the system rather than assumptions.
+    - **Example**:
+        ```yaml
+        - name: check disc usage    
+        ansible.builtin.command: df -h /
+        register: disk_output
+
+        - name: show disk info
+        ansible.builtin.debug:
+            msg: "Worker Node Disk Info:\n{{ disk_output.stdout }}"        
+        ```
+        * **Explaination**:
+          - *Target List*: At the very top of your playbook, you wrote hosts: . This tells Ansible, "Look inside my inventory file and get the IP addresses from those two groups."
+          - *Loop*: Ansible reads your inventory.yaml and sees the two IPs (10.0.0.5 and 10.0.0.6). It automatically loops through them.
+          - *Isolation*: When running the check disc usage task, Ansible logs into the first IP, runs df -h, and saves the result only for that IP. Then it immediately logs into the second IP, runs df -h, and saves the result only for that second IP.
+    - Think of your playbook as a reusable template. You write the steps just once, and Ansible handles the hard work of repeating those steps for every single IP address it finds in your inventory file.
+  * **Variable Precedence (Low → High)**
+    | Priority | Source |
+    | :--- | :--- |
+    | 1 (lowest) | Role defaults (defaults/main.yml) |
+    | 2 | Inventory group vars |
+    | 2 | Inventory host vars |
+    | 4 | Playbook group_vars/ |
+    | 5 | Playbook host_vars/ |
+    | 6 | Playbook vars: block |
+    | 7 | vars_files: |
+    | 8 | vars_prompt: |
+    | 9 | Task vars: |
+    | 10 | set_fact / registered vars |
+    | 11 (highest) | Extra vars -e |
+
+
 ##### Configuring apache webserver on redhat (httpd) and ubunut (apache2) in parllel and hosting a gaming website dynamically.
 
   * configure the custom hosts file i.e inventory file
@@ -632,3 +665,265 @@
     - It has the highest priority in Ansible, meaning any variable you pass using -e will override variables defined anywhere else (such as in the playbook, group vars, host vars, or roles).
 
   * SELinux (Security-Enhanced Linux) is a built-in Linux security system that controls process permissions. [Refer **Security-Enhanced Linux** if you face 403 Errors for RedHat Machine](https://docs.redhat.com/en/documentation/Red_Hat_Enterprise_Linux/6/html-single/security-enhanced_linux/index)
+
+#### Ansible Facts
+
+
+
+
+##### Manual steps to install Apache Tomcat 10 with openjdk 21 on Ubuntu instance
+  * Create a ubuntu instance naming `ubuntu-tomcat-manual` (or choose name of your choice) and attach existing .pem key or create one if you dont have one and then enable `http(80)` and `https(443)` protocals. Later after launching instance try to edit inbound security rule enable `port 8080` since tomcat runs on port 8080. 
+
+  * Now `ssh` into the ubuntu machine using <PUBLIC_IPADDRESS> i.e `ssh -i /User/jagadeesh/Downloads/ansible-keypair ubuntu@54.90.239.250` and then switch user to `root` i.e `sudo su -`.
+
+  * By referring [digital ocean url](https://www.digitalocean.com/community/tutorials/how-to-install-apache-tomcat-10-on-ubuntu-20-04) install apache tomact 10 (to install tomcat first we need to install java)
+  
+    - **Update the local package**:
+        * `sudo apt update`
+
+    - **Create Tomcat user and provide access to /opt/tomcat dir**: 
+        * `sudo useradd -m -d /opt/tomcat -U -s /bin/false tomcat`
+            - **Note**: By supplying `/bin/false` as the user’s default shell, you ensure that it’s not possible to log in as `tomcat`.
+    - Install java openjdk 20 i.e `sudo apt install openjdk-20-jdk`
+        * check java version**: `java --version`
+  
+    - **navigate to the /tmp directory**:
+        * `cd /tmp`
+  
+    - **Download the archive using wget by running the following command**:
+        * `wget https://dlcdn.apache.org/tomcat/tomcat-10/v10.0.20/bin/apache-tomcat-10.0.20.tar.gz`
+            - unable to download using above url now get to [official url](https://tomcat.apache.org/download-10.cgi) and download the `core tar.gz` file i.e `https://dlcdn.apache.org/tomcat/tomcat-10/v10.1.55/bin/apache-tomcat-10.1.55.tar.gz`
+            - **Note**: The `wget` command downloads resources from the Internet.
+
+        * Extract the archive you downloaded by running `sudo tar xzvf apache-tomcat-10*tar.gz -C /opt/tomcat --strip-components=1`. ![preview](Images/tomcat1.png)
+            - **Note**: `--strip-components=1` extracts the internal contents directly into /opt/tomcat instead of creating an extra nested folder like `/opt/tomcat/apache-tomcat-11.0.22/`
+
+        * Since you have already created a user, you can now grant tomcat ownership over the extracted installation by running `sudo chown -R tomcat:tomcat /opt/tomcat/` and `sudo chmod -R u+x /opt/tomcat/bin`, now check the owner and group permissions i.e ![preview](Images/tomcat2.png)
+
+    - **Now configure admin users**
+        * To gain access to the Manager and Host Manager pages, you’ll define privileged users in Tomcat’s configuration. You will need to remove the IP address restrictions, which disallows all external IP addresses from accessing those pages.
+
+        * Tomcat users are defined in `/opt/tomcat/conf/tomcat-users.xml`. Open the file for editing with the following command: `sudo nano /opt/tomcat/conf/tomcat-users.xml`, now add the following lines before the ending tag
+
+        ```xml
+        <role rolename="manager-gui" />
+        <user username="manager" password="manager_password" roles="manager-gui" />
+
+        <role rolename="admin-gui" />
+        <user username="admin" password="admin_password" roles="manager-gui,admin-gui" />
+        ```
+        * **Note**: Replace highlighted passwords with your own. When you’re done, save and close the file.
+
+        * Here you define two user roles, manager-gui and admin-gui, which allow access to Manager and Host Manager pages, respectively. You also define two users, manager and admin, with relevant roles.
+
+        * By default, Tomcat is configured to restrict access to the admin pages, unless the connection comes from the server itself. To access those pages with the users you just defined, you will need to edit config files for those pages.
+
+        * To remove the restriction for the Manager page, open its config file for editing i.e `sudo nano /opt/tomcat/webapps/manager/META-INF/context.xml`, ![preview](Images/tomcat3.png)
+
+            - **Comment out the Valve definition**:
+                ```sh
+                <Context antiResourceLocking="false" privileged="true" >
+                    <CookieProcessor className="org.apache.tomcat.util.http.Rfc6265CookieProcessor"
+                                    sameSiteCookies="strict" />
+                <!--  <Valve className="org.apache.catalina.valves.RemoteAddrValve"
+                        allow="127\.\d+\.\d+\.\d+|::1|0:0:0:0:0:0:0:1" /> -->
+                    <Manager sessionAttributeValueClassNameFilter="java\.lang\.(?:Boolean|Integer|Long|Number|String)|org\.apache\.catalina\.filters\.Csr>
+                </Context>
+                ```
+        * Save and close the file, then repeat for Host Manager i.e `sudo nano /opt/tomcat/webapps/host-manager/META-INF/context.xml` ![preview](Images/tomcat4.png)
+
+        * You have now defined two users, manager and admin, which you will later use to access restricted parts of the management interface. You’ll now create a systemd service for Tomcat.
+
+    - **Creating a systemd service**
+        * The systemd service that you will now create will keep Tomcat quietly running in the background. The systemd service will also restart Tomcat automatically in case of an error or failure.
+
+        * Tomcat, being a Java application itself, requires the Java runtime to be present, which you installed with the JDK. Before you create the service, you need to know where Java is located. You can look that up by running the following command  `sudo update-java-alternatives -l` ![preview](Images/tomcat5.png)
+
+        * Now you need the path momentarily to define the service. Need to store the tomcat service in a file named `tomcat.service`, under `/etc/systemd/system`. Create the file for editing by running `sudo nano /etc/systemd/system/tomcat.service` 
+            - **note**: Modify the  JAVA_HOME if it differs from the one you noted previously by the command used `sudo update-java-alternatives -l`
+        ```tomcat.service
+        [Unit]
+        Description=Tomcat
+        After=network.target
+
+        [Service]
+        Type=forking
+
+        User=tomcat
+        Group=tomcat
+
+        Environment="JAVA_HOME=/usr/lib/jvm/java-1.11.0-openjdk-amd64"
+        Environment="JAVA_OPTS=-Djava.security.egd=file:///dev/urandom"
+        Environment="CATALINA_BASE=/opt/tomcat"
+        Environment="CATALINA_HOME=/opt/tomcat"
+        Environment="CATALINA_PID=/opt/tomcat/temp/tomcat.pid"
+        Environment="CATALINA_OPTS=-Xms512M -Xmx1024M -server -XX:+UseParallelGC"
+
+        ExecStart=/opt/tomcat/bin/startup.sh
+        ExecStop=/opt/tomcat/bin/shutdown.sh
+
+        RestartSec=10
+        Restart=always
+
+        [Install]
+        WantedBy=multi-user.target
+        ```
+        * Here, you define a service that will run Tomcat by executing the startup and shutdown scripts it provides. You also set a few environment variables to define its home directory (which is /opt/tomcat as before) and limit the amount of memory that the Java VM can allocate (in CATALINA_OPTS). Upon failure, the Tomcat service will restart automatically
+
+        * Reload the systemd daemon so that it becomes aware of the new service `sudo systemctl daemon-reload`, now start the Tomcat service and check the status i.e `sudo systemctl start tomcat` and `sudo systemctl status tomcat`, the output should look like ![preview](Images/tomcat6.png)
+
+    - **Accessing the Web Interface**
+        * Now that the Tomcat service is running, you can configure the firewall to allow connections to Tomcat. Then, you will be able to access its web interface. Tomcat uses port 8080 to accept HTTP requests, now run this command to allow traffic `sudo ufw allow 8080`
+
+        * To enable Tomcat starting up with the system, run the following command `sudo systemctl enable tomcat`, now access Tomcat through your web browser i.e `http://PUBLIC-IPADDRESS:8080`, ![preview](Images/tomcat7.png)
+
+        * You should also be able to navigate to **Manager App** and **Host Manager**. When you click on both Manager App and Host Manager it will prompt for user and password (look for user & passwd when you configured `/opt/tomcat/conf/tomcat-users.xml`) then you will navigate to their respective pages.
+            - **Manager App** ![preview](Images/tomcat8.png)
+
+            - **Host Manager** ![preview](Images/tomcat9.png)
+
+
+##### Exercise: Manual steps to install Apache Tomcat 10 with openjdk 21 on RedHat instance
+  * Create a redhat instance naming `redhat-tomcat-manual` (or choose name of your choice) and attach existing .pem key or create one if you dont have one and then enable `http(80)` and `https(443)` protocals. Later after launching instance try to edit inbound security rule enable `port 8080` since tomcat runs on port 8080. 
+
+  * Now `ssh` into the redhat machine using <PUBLIC_IPADDRESS> i.e `ssh -i /User/jagadeesh/Downloads/ansible-keypair ec2-user@54.210.155.84` and then switch user to `root` i.e `sudo su -`.
+  * **Steps for installing Apache Tomcat 10**
+    - Update the local packages `sudo dnf update -y`
+    - Create Tomcat user and provide access to `/opt/tomcat/` dir, i.e `sudo useradd -r -m -U -d /opt/tomcat -s /sbin/nologin tomcat`
+        * `/sbin/nologin` over `/bin/false` is both effectively block shell login access. However, /sbin/nologin is the standard convention in Red Hat. It politely logs a message stating the account is unavailable if a user attempts a login.
+        * `-m` forces the creation of the home directory.
+        * `-d /opt/tomcat` explicitly points the home directory path to your Tomcat installation.
+        * `-U` automatically creates a user group with the matching name tomcat.
+        * **Note**: ensure you change the ownership of that directory right after creating the user by running `sudo chown -R tomcat:tomcat /opt/tomcat`.
+    - Install java openjdk 21 i.e `sudo dnf install java-21-openjdk-devel`
+        * **Note**: If you not include `-devel` Red Hat will only download the Java Runtime Environment (JRE). For production-ready web application servers like Tomcat, you specifically need the `-devel` suffix to supply the complete development tools and compilers (javac).
+    - **check java version**: `java --version`
+    - **Navigate to the /tmp directory**: `cd /tmp`
+    - **Download the archive using wget**
+        * Download the `tar.gz` i.e `wget https://dlcdn.apache.org/tomcat/tomcat-10/v10.1.55/bin/apache-tomcat-10.1.55.tar.gz` 
+            - **Note**: Make sure you install `wget` before you run above command i.e `sudo dnf install wget -y`
+        * Extract the archive you downloaded by running `sudo tar xzvf apache-tomcat-10*tar.gz -C /opt/tomcat --strip-components=1`. ![preview](Images/tomcat10.png)
+            - **Note**: `--strip-components=1` extracts the internal contents directly into /opt/tomcat instead of creating an extra nested folder like `/opt/tomcat/apache-tomcat-11.0.22/`
+        * Since you have already created a user, you can now grant tomcat ownership over the extracted installation by running `sudo chown -R tomcat:tomcat /opt/tomcat/` and `sudo chmod -R u+x /opt/tomcat/bin`, now check the owner and group permissions i.e ![preview](Images/tomcat11.png)
+    - **Now configure admin users**
+        * To gain access to the Manager and Host Manager pages, you’ll define privileged users in Tomcat’s configuration. You will need to remove the IP address restrictions, which disallows all external IP addresses from accessing those pages.
+        * Tomcat users are defined in `/opt/tomcat/conf/tomcat-users.xml`. Open the file for editing with the following command: `sudo nano /opt/tomcat/conf/tomcat-users.xml`, now add the following lines before the ending tag
+            - **Note**: By default `nano` editor doesn't exists in redhat you can install by using `sudo dnf install nano -y` or use `vim` editor.
+        ```xml
+        <role rolename="manager-gui" />
+        <user username="manager" password="manager_password" roles="manager-gui" />
+
+        <role rolename="admin-gui" />
+        <user username="admin" password="admin_password" roles="manager-gui,admin-gui" />
+        ```
+        * **Note**: Replace highlighted passwords with your own. When you’re done, save and close the file.
+        * Here you define two user roles, manager-gui and admin-gui, which allow access to Manager and Host Manager pages, respectively. You also define two users, manager and admin, with relevant roles.
+        * By default, Tomcat is configured to restrict access to the admin pages, unless the connection comes from the server itself. To access those pages with the users you just defined, you will need to edit config files for those pages.
+        * To remove the restriction for the Manager page, open its config file for editing i.e `sudo nano /opt/tomcat/webapps/manager/META-INF/context.xml` ![preview](Images/tomcat12.png)
+            - **Comment out the Valve definition**
+                ```sh
+                <Context antiResourceLocking="false" privileged="true" >
+                    <CookieProcessor className="org.apache.tomcat.util.http.Rfc6265CookieProcessor"
+                                    sameSiteCookies="strict" />
+                <!--  <Valve className="org.apache.catalina.valves.RemoteAddrValve"
+                        allow="127\.\d+\.\d+\.\d+|::1|0:0:0:0:0:0:0:1" /> -->
+                    <Manager sessionAttributeValueClassNameFilter="java\.lang\.(?:Boolean|Integer|Long|Number|String)|org\.apache\.catalina\.filters\.Csr>
+                </Context>                
+                ```
+        * Save and close the file, then repeat for Host Manager i.e `sudo nano /opt/tomcat/webapps/host-manager/META-INF/context.xml` ![preview](Images/tomcat13.png)
+        * You have now defined two users, manager and admin, which you will later use to access restricted parts of the management interface. You’ll now create a systemd service for Tomcat.
+    - **Creating a systemd service**
+        * The systemd service that you will now create will keep Tomcat quietly running in the background. The systemd service will also restart Tomcat automatically in case of an error or failure.
+
+        * Tomcat, being a Java application itself, requires the Java runtime to be present, which you installed with the JDK. Before you create the service, you need to know where Java is located. You can look that up by running the following command `readlink -f /usr/bin/java | sed "s:/bin/java::"`
+        ![preview](Images/tomcat14.png)
+
+        * Now you need the path momentarily to define the service. Need to store the tomcat service in a file named `tomcat.service`, under `/etc/systemd/system`. Create the file for editing by running `sudo nano /etc/systemd/system/tomcat.service` 
+            - **Note**: Modify the  JAVA_HOME if it differs from the one you noted previously by the command used `readlink -f /usr/bin/java | sed "s:/bin/java::"`
+            ```
+            [Unit]
+            Description=Tomcat
+            After=network.target
+
+            [Service]
+            Type=forking
+
+            User=tomcat
+            Group=tomcat
+
+            Environment="JAVA_HOME=/usr/lib/jvm/java-21-openjdk"
+            Environment="JAVA_OPTS=-Djava.security.egd=file:///dev/urandom"
+            Environment="CATALINA_BASE=/opt/tomcat"
+            Environment="CATALINA_HOME=/opt/tomcat"
+            Environment="CATALINA_PID=/opt/tomcat/temp/tomcat.pid"
+            Environment="CATALINA_OPTS=-Xms512M -Xmx1024M -server -XX:+UseParallelGC"
+
+            ExecStart=/opt/tomcat/bin/startup.sh
+            ExecStop=/opt/tomcat/bin/shutdown.sh
+
+            RestartSec=10
+            Restart=always
+
+            [Install]
+            WantedBy=multi-user.target
+            ```    
+            - Here, you define a service that will run Tomcat by executing the startup and shutdown scripts it provides. You also set a few environment variables to define its home directory (which is /opt/tomcat as before) and limit the amount of memory that the Java VM can allocate (in CATALINA_OPTS). Upon failure, the Tomcat service will restart automatically.
+        * Reload the systemd daemon so that it becomes aware of the new service `sudo systemctl daemon-reload`, now start the Tomcat service and check the status i.e `sudo systemctl start tomcat` and `sudo systemctl status tomcat`, the output should look like ![preview](Images/tomcat15.png)
+    - **Accessing the Web Interface**
+        * To enable Tomcat starting up with the system, run the following command `sudo systemctl enable tomcat`, now access Tomcat through your web browser i.e `http://PUBLIC-IPADDRESS:8080`, ![preview](Images/tomcat16.png)
+
+        * You should also be able to navigate to **Manager App** and **Host Manager**. When you click on both Manager App and Host Manager it will prompt for user and password (look for user & passwd when you configured `/opt/tomcat/conf/tomcat-users.xml`) then you will navigate to their respective pages.
+            - **Manager App** ![preview](Images/tomcat17.png)
+
+            - **Host Manager** ![preview](Images/tomcat18.png)  
+
+##### Exercise: Manual steps to install Jenkins Application inside Tomcat server
+  * **Note**: Increase the instance size to t3.medium 
+
+  * By referring Jenkins [WAR file page](https://www.jenkins.io/doc/book/installing/war-file/) copy the war file and run wget command with that war file inside `/opt/tomcat/webapps` i.e `wget https://get.jenkins.io/war-stable/2.555.3/jenkins.war`
+
+  * Now run the command `java -jar jenkins.war`, Got the error while running this command ![preview](Images/tomcat19.png)
+
+  * You are getting an error because you are mixing two different deployment methods. By placing `jenkins.war` inside Tomcat's `/webapps/` folder, Tomcat automatically extracts and runs it; running `java -jar jenkins.war` manually at the same time triggers Jenkins' built-in web server (Winstone), creating a severe port conflict since both try to claim port 8080
+
+  * There are two different deployment methods:
+    - **Let Tomcat Handle It**
+      * Ensure tomcat is stopped i.e `sudo systemctl stop tomcat.service` and then check the status of the tomcat service i.e `sudo systemctl status tomcat.service` - It is inactive (stopped)
+        - **Note**: If you just want to see if port 8080 is free, use `sudo ss -tulnp | grep :8080` (RedHat) and `sudo lsof -i :8080` (Ubuntu)
+      * Tomcat will automatically unpack the WAR file and deploy it, now access jenkins via your browser i.e http://YOUR-SERVER-PUBLIC-IPADDRESS:8080/jenkins (Its better to access with PRIVATE-IP)because the public ip keeps changing when you stop and start the instance.
+        - Getting error **This site can’t be reached” or “Connection Timed Out”**
+          * Red Hat enterprise operating systems have a built-in firewall active by default that blocks incoming traffic on port 8080 unless you explicitly open it, run the following commands to permanently allow traffic through port 8080
+            ```
+            sudo firewall-cmd --zone=public --add-port=8080/tcp --permanent
+            sudo firewall-cmd --reload
+            ```
+          * Verify Tomcat is actually listening or not i.e `sudo ss -tulnp | grep :8080` -> yes, now goto browser and give http://YOUR-SERVER-PUBLIC-IPADDRESS:8080/jenkins ![preview](Images/tomcat20.png) 
+
+          * Now after pasting the password -> choose install suggested plugins -> now enter the required details and click save and continue -> under **instance configuration** now provide http://YOUR-SERVER-PRIVATE-IPADDRESS:8080/jenkins/ -> now you can see the **Jenkins Home Page**. ![preview](Images/tomcat21.png)
+      
+    - **Run Jenkins Standalone**
+      * To run jenkins standalone using `java -jar`, you need to move from tomcat directory to avoid further conflicts. Move the jenkins war file to different directory `mv /opt/tomcat/webapps/jenkins.war /opt/jenkins/`
+      * un the standalone command (and specify a different port if Tomcat is already running on 8080) i.e `java -jar /opt/jenkins/jenkins.war --httpPort=8081`
+      * Access Jenkins via your browser at http://YOUR-SERVER-PRIVATE-IPADDRESS:8081 
+
+##### Exercise: Manual steps to Spring PetClinic Application inside Tomcat server
+
+  * **Install Git and Maven Dependencies**
+      - Ensure your Red Hat system has Git and a Java Development Kit i.e `sudo dnf install git java-21-openjdk-devel -y`
+  * **Clone the Project**
+      - Navigate to cd /opt/tomcat/ and clone the repository directly from GitHub i.e `sudo git clone https://github.com/spring-projects/spring-petclinic.git` -> now navigate to springpetclinic dir i.e `cd spring-petclinic`, now give the owner permissions for the user and group, since i have tomcat as user and group im assigning the same i.e `sudo chown -R tomcat:tomcat /opt/tomcat/spring-petclinic/` and `sudo chmod -R u+x /opt/tomcat/spring-petclinic/` ![preview](Images/tomcat22.png)
+  * **Build the Application Package**
+      - Use the included Maven wrapper to compile the code and package it into a runnable .jar file i.e `./mvnw package -DskipTests`
+  * **Run PetClinic Standalone on a Custom Port**
+      - Once the build finishes, the executable file will be generated in the target/ directory. Run it while explicitly assigning it to port 8082 i.e `java -jar target/spring-petclinic-*.jar --server.port=8082` 
+        * **Note**: check you enable custom TCP port 8082 under in-bound rule for the instance security group.
+  * **Open the Firewall Port**: Run only when you encounter the page can't be reached.
+      - Red Hat enterprise operating systems have a built-in firewall active by default that blocks incoming traffic on port 8082 (custom port) unless you explicitly open it, run the following commands to permanently allow traffic through port 8082 for **spring-petclinic**.
+      ```
+      sudo firewall-cmd --zone=public --add-port=8082/tcp --permanent
+      sudo firewall-cmd --reload
+      ```
+      - **Note (How to stop it if you ever need to restart it)**: Run this command to port check tool to see the active background process holding onto port 8082 i.e `sudo ss -tulnp | grep :8082` -> you can see the **ProcessID** or other way is to run `sudo lsof -i :8082`, to kill it run `sudo kill -9 <PID>`
+
+  * Now the SpringPetClinic is successfully running. ![preview](Images/tomcat23.png)
+
