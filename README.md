@@ -243,11 +243,15 @@
 
       - The response when running above command looks like ![preview](Images/ansible4.png)
 
-##### Setting Up a Mixed Ansible Environment (`redhat-ansible-server`, `ubuntu-worker-1`, `redhat-worker-2`)
+##### Setting Up a Mixed Ansible Environment
+  * The environment setup for 
+    - `redhat-ansible-server`
+    - `ubuntu-worker-1` 
+    - `redhat-worker-2`
 
-* In this section, I am demonstrating the configuration only for the RedHat instance. You can apply the same configuration steps to the RedHat worker node as well. For the Ubuntu worker node, follow the Ubuntu specific configuration steps provide in previous sections. 
+  * In this section, I am demonstrating the configuration only for the RedHat instance. You can apply the same configuration steps to the RedHat worker node as well. For the Ubuntu worker node, follow the Ubuntu specific configuration steps provide in previous sections. 
 
-* In this setup, we will use: 
+  * In this setup, we will use: 
     - Ansible Server (Control Node): Red Hat Enterprise Linux (RHEL)
     - Worker Node 1: Ubuntu
     - Worker Node 2: Red Hat Enterprise Linux (RHEL)
@@ -403,3 +407,228 @@
         * `--recursive` (or `-r`) flag tells Linux to copy everything inside the folder, including all nested subdirectories and assets.
   * Now open your browser and check whether you are able to reach the Nginx homepage. `http://<your-server-public-ip>`
     - *Note*: you can use `curl ifconfig.me` to find your public IP address without navigating to cloud ec2 console.
+
+##### Automating the website deployment using ansible-playbook (redhat ansible server) and manipulate worker nodes (redhat:httpd & ubuntu:apache2)
+  * [Follow the steps provided under setting up a mixed ansible environment](#setting-up-a-mixed-ansible-environment) upto copying ssh public key to the worker nodes.
+
+  * *Note*: While creating worker instances (redhat and ubuntu) try to enable http and https from anywhere under security group in-bound rules.
+
+  * While installing ansible server in redhat machine it won't create a default ansible directory so try to create `mkdir -p ~/ansible` and then add invintory.ini file inside it. Similarly, we need to add our ansble-playbook in the same directory (**sign-up as ansible user in control node and perform these commands**).
+  
+  * **Configure Inventory File** 
+    - Instead of calling the user and ssh private key while running ansible-playbook we can provide that in inventory file i.e `ansible-playbook -i inventory.ini httpd.yaml --user ansible --private-key ~/.ssh/ansible_key` or run this `ansible-playbook -i inventory.ini httpd.yaml` if you specify ssh in inventory.ini 
+
+    - `/ansible/inventory.ini` file looks like:
+        ```ini
+        #inventory.ini
+
+        [redhat_nodes]
+        172.31.39.20 user=ansible
+
+        [ubuntu_nodes]
+        172.31.44.85 user=ansible
+
+        [all:vars]
+        ansible_user=ansible        
+        ansible_ssh_private_key_file=~/.ssh/ansible_key
+
+        ```
+    - `/ansible/httpd.yaml` here we want to deploy website to **RedHat instance** using **httpd** webserver. After playbook is done try to run `ansible-playbook -i inventory.ini httpd.yaml`
+
+        * **Note**: This playbook is only for redhat worker. 
+
+        ```yaml
+        ---
+        - name: Host a Gaming Website using httpd webserver on redhat machine
+        hosts: redhat_nodes
+        become: yes
+        tasks:
+            - name: Install apache httpd
+            ansible.builtin.dnf:
+                name: httpd
+                update_cache: true
+                state: present
+
+            - name: restart service apache
+            ansible.builtin.systemd_service:
+                name: httpd
+                enabled: true
+                state: restarted
+
+            - name: Install unzip
+            ansible.builtin.dnf:
+                name: unzip
+                state: present
+
+            - name: Download gaming html
+            ansible.builtin.get_url:
+                url: https://templatemo.com/tm-zip-files-2020/templatemo_589_lugx_gaming.zip
+                dest: /tmp/templatemo_589_lugx_gaming.zip
+                mode: '0755'
+
+            - name: unzip templated in apache html
+            ansible.builtin.unarchive:
+                src: /tmp/templatemo_589_lugx_gaming.zip
+                dest: /tmp/
+                remote_src: true
+
+            - name: copy files
+            ansible.builtin.copy:
+                src: /tmp/templatemo_589_lugx_gaming/
+                dest: /var/www/html/
+                remote_src: true
+                owner: apache        # Changed from www-data to apache for redhat
+                group: apache        # Changed from www-data to apache for redhat
+                mode: '0755'
+
+            - name: Restore SELinux contexts on web root (Fixes 403 Forbidden)
+            ansible.builtin.command:
+                cmd: restorecon -R /var/www/html
+            changed_when: false
+
+            - name: restart service apcahe
+            ansible.builtin.systemd_service:
+                name: httpd
+                enabled: yes
+                state: restarted
+        ```
+    * On RedHat Rocky Linux, and AlmaLinux, security is managed by a system called **SELinux (Security-Enhanced Linux)**
+
+    * The `restorecon` command tells Red Hat to "Look at all the files in /var/www/html and give them the correct security labels so the web server can read them.
+
+    * The steps completely mandatory for Red Hat:
+        - 1. Files carry "Hidden Tags" (SELinux Contexts) Every file on Red Hat has a hidden security label. You can view these labels by running `ls -Z`. 
+            * Files inside `/tmp/` get a tag called `tmp_t` (meaning: Temporary file). 
+            * Files inside `/var/www/html/` must have a tag called `httpd_sys_content_t` (meaning: Web server file).
+        - 2. When your ansible playbook downloads and unzips the template into `/tmp/`, the files are tagged as `tmp_t`. When Ansible copies those files into `/var/www/html/`, they keep their old `tmp_t` tags.
+        - 3. **Apache Gets Blocked**
+            - Apache (`httpd`) on Red Hat runs in a strict security sandbox. It looks at the files you just copied, sees the `tmp_t` (temporary) tag, and says: "I am a web server. I am not allowed to open temporary system files."
+            - Even if your Linux permissions are set perfectly to `0755` or `0644`, SELinux overrides them and blocks Apache, which results in a `403 Forbidden` error or broken CSS/images
+        **Usage of the command**:
+            - `restorecon`: Stands for "Restore Context". It resets the hidden security tags back to their default values based on where the file lives.
+            - `-R`: Means Recursive. It fixes the main folder and every single subfolder and file inside it (like your CSS, JavaScript, and images).
+            - `changed_when`: false: This is just for Ansible. Because restorecon is a raw Linux command, Ansible will always report it as a "Yellow / Changed" task. Adding this line forces Ansible to keep it "Green / OK" so your playbooks look clean
+
+#### Variables and Types of variables
+
+##### Configuring apache webserver on redhat (httpd) and ubunut (apache2) in parllel and hosting a gaming website dynamically.
+
+  * configure the custom hosts file i.e inventory file
+    - *Note*: when you use yaml format try to save the inventory file with `.yaml` extension i.e `inventory.yaml`
+    - **ini format**
+    ```ini
+    [redhat_nodes]
+    172.31.21.38
+
+    [ubuntu_nodes]
+    172.31.18.24
+
+    [all_workers:children]
+    redhat_nodes
+    ubuntu_nodes
+
+    [all:vars]
+    ansible_user=ansible
+    ansible_ssh_private_key_file=~/.ssh/ansible_key
+    ```
+    - **yaml format**
+    ```yaml
+    all:
+      children:
+        redhat_nodes:
+          hosts:
+            172.31.21.38
+        ubuntu_nodes:
+          hosts:
+            172.31.18.24
+      vars:
+        ansible_user: ansible
+        ansible_ssh_private_key_file: ~/.ssh/ansible_key
+    ```
+  * We can add names infront of the ips and do `alias` i.e we can call using worker1 and worker2
+    ```ini
+    [redhat_nodes]
+    worker1 ansible_host=172.31.21.38
+
+    [ubuntu_nodes]
+    worker2 ansible_host=172.31.18.24 
+    ```
+  * Now configure ansible playbook named `apache.yaml`
+    ```yaml
+    ---
+    - name: Deploying Gaming Website
+    hosts: "{{ chosen_servers | default('redhat_nodes,ubuntu_nodes') }}" # you can choose "all" so the playbook runs for all hosts, here i want to pass the hosts distribution from command `ansible-playbook -i inventory.yaml apache.yaml -e "chosen_servers=redhat_nodes"`
+    gather_facts: true
+    become: yes
+    vars:
+        website_url: https://templatemo.com/tm-zip-files-2020/templatemo_589_lugx_gaming.zip
+        webserver_package: "{{ 'httpd' if ansible_facts['os_family'] == 'RedHat' else 'apache2' }}" 
+        web_owner: "{{ 'www-data' if ansible_facts['os_family'] == 'Debian' else 'apache' }}" # we can use ansible_facts['os_family'] == 'Debian' or ansible_os_family == 'Debian'
+
+    tasks:
+        - name: check disc usage    # You no need to mention the worker nodes, by default the playbook runs this for all worker nodes defined in inventory.ini/yaml 
+        ansible.builtin.command: df -h /
+        register: disk_output
+
+        - name: show disk info
+        ansible.builtin.debug:
+            msg: "Worker Node Disk Info:\n{{ disk_output.stdout }}"
+
+        - name: Display the target webserver package
+        ansible.builtin.debug:
+            msg: "The package assigned to this host is: {{ webserver_package }}"
+
+        - name: "Update and install {{ webserver_package }}"
+        ansible.builtin.package:
+            name: "{{ webserver_package }}"
+            state: present
+
+        - name: Install unzip package
+        ansible.builtin.package:
+            name: unzip
+            state: present
+
+        - name: Download gaming html zip archive
+        ansible.builtin.get_url:
+            url: "{{ website_url }}"
+            dest: /tmp/templatemo_589_lugx_gaming.zip
+            mode: '0755'
+
+        - name: Unarchive gaming template to tmp directory
+        ansible.builtin.unarchive:
+            src: /tmp/templatemo_589_lugx_gaming.zip
+            dest: /tmp/
+            remote_src: yes
+
+        - name: Copy site assets to web root directory
+        ansible.builtin.copy:
+            src: /tmp/templatemo_589_lugx_gaming/
+            dest: /var/www/html/
+            remote_src: yes
+            owner: "{{ web_owner }}"
+            group: "{{ web_owner }}"
+            mode: '0755'
+        notify : Restart webserver package
+
+        - name: Restore SELinux contexts on web root (Fixes RedHat 403 Forbidden)
+        ansible.builtin.command:
+            cmd: restorecon -R /var/www/html
+        changed_when: false
+        when: ansible_facts['os_family'] == 'RedHat'
+
+        - name: Successfully deployed gaming website on target webserver
+        ansible.builtin.debug:
+            msg: "Success! The gaming website has been fully deployed on {{ inventory_hostname }} ({{ ansible_distribution }}) using the {{ webserver_package }} package."
+    
+    handlers:
+        - name: Restart webserver package # Always keep the name as static, don't add like this "{{ webserver_package }}"
+        ansible.builtin.systemd_service:
+            name: "{{ webserver_package }}"
+            enabled: yes
+            state: restarted
+    ```
+  * This playbook deploys a website to the worker nodes by passing values dynamically `ansible-playbook -i inventory.yaml apache.yaml -e "chosen_servers=redhat_nodes"`, if you want to deploy to all the node then use `ansible-playbook -i inventory.yaml apache.yaml`
+    - In Ansible, the `-e` flag (short for `--extra-vars`) is used to pass variables into a playbook directly from the command line at runtime.
+    - It has the highest priority in Ansible, meaning any variable you pass using -e will override variables defined anywhere else (such as in the playbook, group vars, host vars, or roles).
+
+  * SELinux (Security-Enhanced Linux) is a built-in Linux security system that controls process permissions. [Refer **Security-Enhanced Linux** if you face 403 Errors for RedHat Machine](https://docs.redhat.com/en/documentation/Red_Hat_Enterprise_Linux/6/html-single/security-enhanced_linux/index)
