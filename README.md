@@ -239,7 +239,7 @@
         * **SSH Key based authentication**:
           - `ansible all -m ping --user ansible --private-key ~/.ssh/ansible_key`, This method uses the SSH key pair configured earlier and avoids entering a password each time.
         
-      - *Note*: If you are using a custom inventory file (for example, `inventory.ini`) instead of the default `hosts` file, specify it with the -i option i.e `ansible all -m ping --user ansible --private-key ~/.ssh/ansible_key`
+      - *Note*: If you are using a custom inventory file (for example, `inventory.ini`) instead of the default `hosts` file, specify it with the -i option i.e `ansible -i inventory.ini -m ping --user ansible --private-key ~/.ssh/ansible_key`
 
       - The response when running above command looks like ![preview](Images/ansible4.png)
 
