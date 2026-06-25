@@ -1,0 +1,4 @@
+#SPDX-License-Identifier: MIT-0
+---
+# defaults file for java21
+  java_package: "{{ 'java-21-openjdk-devel' if ansible_os_family == 'RedHat' else 'openjdk-21-jdk' }}" 

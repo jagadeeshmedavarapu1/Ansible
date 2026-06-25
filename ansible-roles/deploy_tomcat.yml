@@ -7,3 +7,4 @@
 
   roles:
     - role: tomcat10
+    - role: java21

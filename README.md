@@ -1849,6 +1849,8 @@
   * Creating the Role: Use the command `ansible-galaxy role init <role_name>` to automatically generate the standard Ansible directory structure.
   * Installing the Tree Utility: To view the generated folder structure as a visual tree, install the utility tool using sudo apt install tree on Ubuntu, or sudo dnf install tree on Red Hat. ![preview](Images/tree1.png)
 
+  * **Note**: Ensure you have Ansible installed before executing any `ansible-galaxy` commands. Since Ansible is already configured on the remote control node, you can verify its availability by checking the galaxy version. If you prefer to run `ansible-galaxy` commands directly from your local machine, you must first install the Ansible package using Homebrew (`brew update && brew install ansible`) and confirm the installation by running `ansible-galaxy --version`. ![preview](Images/ansible7.png)
+
   * Now make changes according to the folders (**Path: Ansible(repository)/ansible-roles/tomcat10/** <-- where you can see all these directories)
     - When you generate an Ansible Role using ansible-galaxy, it creates a standardized file layout. Each directory contains a main.yml file designed for a specific purpose.
       * `defaults` Directory: The `defaults/main.yml` file is used to store centralised, low-priority variables. These are the default configuration values for your role that can easily be overridden by a user if needed.
@@ -1933,3 +1935,6 @@
       * With `remote_src: yes`: Ansible bypasses your control machine completely. It looks for the file directly on the target node, copies it, and pastes it into the new destination on that same target node.
     * **Example**:
       * If you download a Tomcat `.tar.gz` archive directly onto your target Red Hat or Ubuntu node using a `get_url` task, the file now lives on that remote node. To unarchive or copy it to `/opt/tomcat`, you must use `remote_src: yes` because the file is already on the remote server, not on your Ansible control machine.
+
+  * **Create the java21 role and integrate it into the existing `deploy_tomcat.yml` playbook.**
+    * 

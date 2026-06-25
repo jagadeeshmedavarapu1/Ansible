@@ -15,23 +15,23 @@
     shell: "{{ tomcat_shell }}"             # -s /sbin/nologin
     state: present
 
-- name: Install dependencies on Red Hat-based systems
-  ansible.builtin.dnf:
-    name:
-      - "{{ java_package }}"
-      - wget
-    state: present
-    update_cache: true
-  when: ansible_os_family == "RedHat"
+# - name: Install dependencies on Red Hat-based systems
+#   ansible.builtin.dnf:
+#     name:
+#       - "{{ java_package }}"
+#       - wget
+#     state: present
+#     update_cache: true
+#   when: ansible_os_family == "RedHat"
 
-- name: Install dependencies on Debian/Ubuntu-based systems
-  ansible.builtin.apt:
-    name:
-      - "{{ java_package }}"
-      - wget
-    state: present
-    update_cache: true
-  when: ansible_os_family == "Debian"
+# - name: Install dependencies on Debian/Ubuntu-based systems
+#   ansible.builtin.apt:
+#     name:
+#       - "{{ java_package }}"
+#       - wget
+#     state: present
+#     update_cache: true
+#   when: ansible_os_family == "Debian"
 
 - name: Download Tomcat archive to /tmp/
   ansible.builtin.get_url:
