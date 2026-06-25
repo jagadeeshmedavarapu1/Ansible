@@ -2051,4 +2051,56 @@
         * **Run on All Available Inventory Nodes**: You can run the following command i.e `ansible-playbook -i tomcat10/tests/inventory deploy_tomcat.yml`.
 
   * **Installing java role from `geerlingguy.java` and integrate it into the existing `deploy_tomcat.yml` playbook**
-    * 
+
+    * **How to download a Java role from online**:
+      * The most popular and trusted Java role in the Ansible community is written by an author named **geerlingguy**.
+      * To download it without breaking your current workspace, run this command in your terminal (`Ansible/ansible-roles`): `ansible-galaxy role install geerlingguy.java`
+      * Ansible will automatically download this role from the online hub and save it into a global folder on your Mac (usually under `~/.ansible/roles/`). Because it is saved globally, your playbooks can see it, but it stays completely separate from your custom folders.
+    * **How to attach this downloaded role to your tomcat10 role**:
+      * To link this specific online role to your Tomcat deployment, you must declare it as an upstream dependency.
+      * Open your `tomcat10/meta/main.yml` file, go to the dependencies: section at the bottom, and type the exact name of the online role you just downloaded:
+      ```yml
+      dependencies:
+        - role: geerlingguy.java
+      ```
+    * How to pass your custom Java 21 config to the online role
+      * Since community roles are designed to be generic, they usually default to installing Java 11 or Java 8. To force geerlingguy.java to install Java 21 using your specific parameters, you pass your custom variables directly inside that same dependency block.
+      * Update your `tomcat10/meta/main.yml` dependency section to look like this:
+      ```yml
+      dependencies:
+        - role: geerlingguy.java
+          vars:
+            java_packages:
+              - "{{ 'java-21-openjdk-devel' if ansible_os_family == 'RedHat' else 'openjdk-21-jdk' }}"
+      ```
+    * Make sure you have removed the config related `- role: java21` and replace with `- role: geerlingguy.java` i.e you have to make changes to 
+      1. `ansible-roles/tomcat10/meta/main.yml`
+        ```yml
+        dependencies: 
+          # List your role dependencies here, one per line. Be sure to remove the '[]' above,
+          # if you add dependencies to this list.
+          # - role: java21
+          - role: geerlingguy.java
+            vars:
+              java_packages:
+                - "{{ 'java-21-openjdk-devel' if ansible_os_family == 'RedHat' else 'openjdk-21-jdk' }}" # Defining java package that need to be installed on RedHat/Ubuntu.
+        ```
+      2. `ansible-roles/tomcat10/tests/test.yml`
+        ```yml
+        ---
+        - hosts: localhost
+          remote_user: root
+          roles:
+            - tomcat10
+            # - java21 # Disabling custom created role
+            - geerlingguy.java # Adding pre-installed role from geerlingguy
+        ```
+      3. `ansible-roles/deploy_tomcat.yml`
+        ```yml
+        roles:
+          - role: tomcat10
+          # - role: java21
+          # - role: geerlingguy.java # You no need to mention this role as you can already defined under dependecy of tomcat10 role
+        ```
+    * How it executes now
+      * When you run your main deploy_tomcat.yml playbook, Ansible reads the Tomcat metadata, pauses, jumps out to execute the downloaded geerlingguy.java role to install Java 21 across your nodes, and then seamlessly returns to run your Tomcat tasks. You can use `ansible-playbook -i tomcat10/tests/inventory deploy_tomcat.yml`
