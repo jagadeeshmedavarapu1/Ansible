@@ -2103,4 +2103,4 @@
           # - role: geerlingguy.java # You no need to mention this role as you can already defined under dependecy of tomcat10 role
         ```
     * **How it executes now**
-      * When you run your main deploy_tomcat.yml playbook, Ansible reads the Tomcat metadata, pauses, jumps out to execute the downloaded geerlingguy.java role to install Java 21 across your nodes, and then seamlessly returns to run your Tomcat tasks. You can use `ansible-playbook -i tomcat10/tests/inventory deploy_tomcat.yml`
+      * When you run your main deploy_tomcat.yml playbook, Ansible reads the Tomcat metadata, pauses, jumps out to execute the downloaded geerlingguy.java role to install Java 21 across your nodes, and then seamlessly returns to run your Tomcat tasks. You can use `ansible-playbook -i tomcat10/tests/inventory deploy_tomcat.yml`. ![preview](Images/ansible8.png)
