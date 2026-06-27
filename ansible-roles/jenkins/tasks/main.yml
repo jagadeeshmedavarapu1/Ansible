@@ -1,0 +1,11 @@
+#SPDX-License-Identifier: MIT-0
+---
+# tasks file for jenkins
+- name: Download jenkins war file
+  ansible.builtin.get_url:
+    url: "https://get.jenkins.io/war-stable/{{ jenkins_version }}/jenkins.war"
+    dest: "{{ webapps_path }}"
+    owner: tomcat
+    group: tomcat
+    mode: '0644'
+  notify: Reload and Restart systemd daemon

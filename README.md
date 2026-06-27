@@ -2196,7 +2196,9 @@
           - role: tomcat10      
       ```
   * **Run the Playbook Securely**
-    * Execute your playbook by passing the required vault decryption flag: `ansible-playbook deploy_tomcat.yml --ask-vault-pass`
+    * Execute your playbook by passing the required vault decryption flag: `ansible-playbook -i tomcat10/tests/inventory deploy_tomcat.yml --ask-vault-pass`
     * **What happens if you use or omit this flag?**
       * **With `--ask-vault-pass`**: Ansible will securely prompt you to type your Vault password in the terminal. It decrypts tomcat_manager.yml in memory during execution to seamlessly deploy your secrets.
       * **Without `--ask-vault-pass`**: The playbook execution will fail immediately with an AnsibleVaultFormatError because Ansible cannot read the encrypted variables in your vars_files.
+
+#### Ansible Collections

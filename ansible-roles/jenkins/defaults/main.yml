@@ -1,0 +1,7 @@
+#SPDX-License-Identifier: MIT-0
+---
+# defaults file for jenkins
+# https://get.jenkins.io/war-stable/2.555.3/jenkins.war
+java_version: 21
+jenkins_version: 2.555.3
+webapps_path: /opt/tomcat/webapps

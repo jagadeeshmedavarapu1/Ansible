@@ -1,0 +1,8 @@
+#SPDX-License-Identifier: MIT-0
+---
+- hosts: localhost
+  remote_user: root
+  roles:
+    - jenkins
+    - geerlingguy.java
+    - tomcat10
