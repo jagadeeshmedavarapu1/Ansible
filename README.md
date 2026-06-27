@@ -1001,7 +1001,7 @@
                                     sameSiteCookies="strict" />
                 <!--  <Valve className="org.apache.catalina.valves.RemoteAddrValve"
                         allow="127\.\d+\.\d+\.\d+|::1|0:0:0:0:0:0:0:1" /> -->
-                    <Manager sessionAttributeValueClassNameFilter="java\.lang\.(?:Boolean|Integer|Long|Number|String)|org\.apache\.catalina\.filters\.Csr>
+                    <Manager sessionAttributeValueClassNameFilter="java\.lang\.(?:Boolean|Integer|Long|Number|String)|org\.apache\.catalina\.filters\.CsrfPreventionFilter\$LruCache(?:\$1)?|java\.util\.(?:Linked)?HashMap"/>
                 </Context>
                 ```
         * Save and close the file, then repeat for Host Manager i.e `sudo nano /opt/tomcat/webapps/host-manager/META-INF/context.xml` ![preview](Images/tomcat4.png)
@@ -1101,7 +1101,7 @@
                                     sameSiteCookies="strict" />
                 <!--  <Valve className="org.apache.catalina.valves.RemoteAddrValve"
                         allow="127\.\d+\.\d+\.\d+|::1|0:0:0:0:0:0:0:1" /> -->
-                    <Manager sessionAttributeValueClassNameFilter="java\.lang\.(?:Boolean|Integer|Long|Number|String)|org\.apache\.catalina\.filters\.Csr>
+                    <Manager sessionAttributeValueClassNameFilter="java\.lang\.(?:Boolean|Integer|Long|Number|String)|org\.apache\.catalina\.filters\.CsrfPreventionFilter\$LruCache(?:\$1)?|java\.util\.(?:Linked)?HashMap"/>
                 </Context>                
                 ```
         * Save and close the file, then repeat for Host Manager i.e `sudo nano /opt/tomcat/webapps/host-manager/META-INF/context.xml` ![preview](Images/tomcat13.png)
@@ -1396,7 +1396,7 @@
                     sameSiteCookies="strict" />
   <!--  <Valve className="org.apache.catalina.valves.RemoteCIDRValve"
           allow="127.0.0.0/8,::1/128" /> -->
-    <Manager sessionAttributeValueClassNameFilter="java\.lang\.(?:Boolean|Integer|Long|Number|String)|org\.apache\.catalina\.fil>
+    <Manager sessionAttributeValueClassNameFilter="java\.lang\.(?:Boolean|Integer|Long|Number|String)|org\.apache\.catalina\.filters\.CsrfPreventionFilter\$LruCache(?:\$1)?|java\.util\.(?:Linked)?HashMap"/>
   </Context>
   ```
   - `tomcat/templates/manager_context.xml.j2`
@@ -1423,7 +1423,7 @@
                     sameSiteCookies="strict" />
   <!--  <Valve className="org.apache.catalina.valves.RemoteCIDRValve"
           allow="127.0.0.0/8,::1/128" /> -->
-    <Manager sessionAttributeValueClassNameFilter="java\.lang\.(?:Boolean|Integer|Long|Number|String)|org\.apache\.catalina\.fil>
+    <Manager sessionAttributeValueClassNameFilter="java\.lang\.(?:Boolean|Integer|Long|Number|String)|org\.apache\.catalina\.filters\.CsrfPreventionFilter\$LruCache(?:\$1)?|java\.util\.(?:Linked)?HashMap"/>
   </Context>
   ```
   - `tomcat/templates/tomcat-users.xml.j2`
@@ -1844,6 +1844,10 @@
     172.31.30.237              : ok=19   changed=12   unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
     172.31.30.244              : ok=18   changed=6    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0  
     ```
+
+  - **Note**: 
+    * I came accross an error where the tomcat manager apps i.e **Manager-App** & **Host-Manager** failing with 404 errors (`http://100.27.189.67:8080/manager/html` and `http://100.27.189.67:8080/host-manager/html`) likely stems from corrupted <Manager> tags within the `/META-INF/context.xml` files for both the manager and host-manager applications (The corrupted line was `<Manager sessionAttributeValueClassNameFilter="java\.lang\.(?:Boolean|Integer|Long|Number|String)|org\.apache\.catalina\.fil>`). ![preview](Images/tomcat25.png)
+    * Verification involves inspecting the compilation cache using `ls -l /opt/tomcat/work/Catalina/localhost/` in worker nodes. ![preview](Images/tomcat26.png)
 
 #### Ansible Roles 
   * **What are Ansible Roles?**
