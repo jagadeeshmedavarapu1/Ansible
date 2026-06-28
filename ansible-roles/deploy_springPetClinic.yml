@@ -8,3 +8,7 @@
 
   roles:
     - role: springPetClinic
+      vars:
+        user_name: tomcat
+        group_name: tomcat
+        tomcat_home_directory: /opt/tomcat

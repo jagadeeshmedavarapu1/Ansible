@@ -41,7 +41,3 @@ dependencies:
       java_packages:
         - "{{ 'java-' ~ java_version ~ '-openjdk-devel' if ansible_os_family == 'RedHat' else 'openjdk-' ~ java_version ~ '-jdk' }}"
   - role: tomcat10
-    vars:
-      group_name: tomcat
-      user_name: tomcat 
-      tomcat_home_directory: /opt/tomcat
