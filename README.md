@@ -1180,7 +1180,7 @@
       * un the standalone command (and specify a different port if Tomcat is already running on 8080) i.e `java -jar /opt/jenkins/jenkins.war --httpPort=8081`
       * Access Jenkins via your browser at http://YOUR-SERVER-PRIVATE-IPADDRESS:8081 
 
-##### **Exercise: Manual steps to Spring PetClinic Application inside Tomcat server**
+##### **Exercise: Manual steps to Install Spring PetClinic Application inside Tomcat server**
 
   * **Install Git and Maven Dependencies**
       - Ensure your Red Hat system has Git and a Java Development Kit i.e `sudo dnf install git java-21-openjdk-devel -y`
@@ -2290,3 +2290,5 @@
   * Next, open your web browser and navigate to `http://<YOUR_SERVER_PUBLIC_IP>:8080/jenkins`. When the Jenkins setup page prompts you for the Administrator password, log into your worker node via SSH, retrieve the password string from the path displayed on the screen, and paste it into the UI to unlock Jenkins. ![preview](Images/tomcat27.png) 
   * After passing the administrator password, select install suggested plugins, enter your required user details, and click Save and Continue. ![preview](Images/tomcat28.png)
   * Finally, under the **Instance Configuration** section, provide the URL `http://<YOUR_SERVER_PUBLIC_IP>:8080/jenkins/` and proceed to access the **Jenkins Home Page**. ![preview](Images/tomcat29.png)
+
+##### Deploy Spring-PetClinic by using java and tomcat roles
