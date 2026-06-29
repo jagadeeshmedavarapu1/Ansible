@@ -8,9 +8,7 @@ User={{ user_name }}
 Group={{ group_name }}
 WorkingDirectory={{ app_home }}
 
-ExecStart=/usr/bin/java \
-  -jar {{ app_home }}/spring-petclinic.jar \
-  --spring.config.location=file:{{ app_home }}/application.properties
+ExecStart=/usr/bin/java -jar /opt/tomcat/spring-petclinic/spring-petclinic.jar --server.port={{ app_port }}
 
 SuccessExitStatus=143
 Restart=always
