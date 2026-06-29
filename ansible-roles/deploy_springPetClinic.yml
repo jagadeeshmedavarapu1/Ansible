@@ -1,14 +1,18 @@
 # The playbook.yml file should be located in the root directory alongside the springPetClinic role definition.
-- name: Deploy Apache Tomcat Server on Linux (Redhat/Ubuntu) Nodes
-  hosts: redhat_nodes
+
+- name: Deploy Spring PetClinic
+  hosts: "{{ chosen_servers | default('redhat_nodes,ubuntu_nodes') }}"
   gather_facts: true
   become: yes
   vars_files:
-    - tomcat10/vars/tomcat_manager.yml
+    - tomcat10/vars/tomcat_manager.yml  
 
   roles:
-    - role: springPetClinic
-      vars:
-        user_name: tomcat
-        group_name: tomcat
-        tomcat_home_directory: /opt/tomcat
+    - springPetClinics
+
+  post_tasks:
+    - name: Display application URL
+      debug:
+        msg: >
+          Spring PetClinic is available at
+          http://{{ ansible_host | default(inventory_hostname) }}:{{ app_port }}

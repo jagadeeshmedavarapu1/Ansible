@@ -1,8 +1,11 @@
 #SPDX-License-Identifier: MIT-0
 ---
 # defaults file for springPetClinic
-spring_pet_clinic_repo: 'https://github.com/spring-projects/spring-petclinic.git'
+spring_pet_clinic_repo: "https://github.com/spring-projects/spring-petclinic.git"
 java_version: 21
-user_name: tomcat
-group_name: tomcat
 tomcat_home_directory: /opt/tomcat
+build_dir: "/tmp/spring-petclinic"
+app_home: "/opt/tomcat/spring-petclinic"
+user_name: "tomcat"
+group_name: "tomcat"
+app_port: 8082

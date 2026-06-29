@@ -1,0 +1,20 @@
+[Unit]
+Description=Spring PetClinic
+After=network.target
+
+[Service]
+Type=simple
+User={{ user_name }}
+Group={{ group_name }}
+WorkingDirectory={{ app_home }}
+
+ExecStart=/usr/bin/java \
+  -jar {{ app_home }}/spring-petclinic.jar \
+  --spring.config.location=file:{{ app_home }}/application.properties
+
+SuccessExitStatus=143
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

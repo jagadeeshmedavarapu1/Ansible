@@ -1,61 +1,85 @@
 #SPDX-License-Identifier: MIT-0
 ---
 # tasks file for springPetClinic
-
-- name: Install Git dependency
-  ansible.builtin.package:
-    name: git
+- name: Install required packages on Ubuntu
+  apt:
+    name:
+      - git
+      - maven
     state: present
+    update_cache: yes
+  when: ansible_os_family == "Debian"
 
-- name: Clone Git repository
-  ansible.builtin.git:
+- name: Install required packages on RedHat
+  dnf:
+    name:
+      - git
+      - maven
+    state: present
+  when: ansible_os_family == "RedHat"
+
+- name: Remove old source directory
+  file:
+    path: "{{ build_dir }}"
+    state: absent
+
+- name: Clone Spring PetClinic repository
+  git:
     repo: "{{ spring_pet_clinic_repo }}"
-    dest: "{{ tomcat_home_directory }}/spring-petclinic"
-    clone: true
+    dest: "{{ build_dir }}"
     version: main
-    update: true
+    force: yes
 
-- name: Ensure correct ownership on Spring PetClinic directory
-  ansible.builtin.file:
-    path: "{{ tomcat_home_directory }}/spring-petclinic"
+- name: Build Spring PetClinic
+  shell: mvn clean package -DskipTests
+  args:
+    chdir: "{{ build_dir }}"
+
+- name: Create application directory
+  file:
+    path: "{{ app_home }}"
+    state: directory
     owner: "{{ user_name }}"
     group: "{{ group_name }}"
-    recurse: true
-    state: directory
+    mode: '0755'
 
-- name: Build application using Maven Wrapper
-  ansible.builtin.command: ./mvnw package -DskipTests
+- name: Copy generated JAR
+  shell: |
+    cp {{ build_dir }}/target/*.jar \
+       {{ app_home }}/spring-petclinic.jar
   args:
-    chdir: "{{ tomcat_home_directory }}/spring-petclinic"
-  become: true
-  become_user: "{{ user_name }}"
+    executable: /bin/bash
 
-# - name: Add port 8082 to firewall permanently
-#   ansible.builtin.command:
-#     cmd: firewall-cmd --zone=public --add-port=8082/tcp --permanent
+- name: Set ownership on application directory
+  file:
+    path: "{{ app_home }}"
+    owner: "{{ user_name }}"
+    group: "{{ group_name }}"
+    recurse: yes
 
-# - name: Reload firewalld
-#   ansible.builtin.command:
-#     cmd: firewall-cmd --reload
+- name: Create application.properties
+  copy:
+    dest: "{{ app_home }}/application.properties"
+    owner: "{{ user_name }}"
+    group: "{{ group_name }}"
+    mode: '0644'
+    content: |
+      server.port={{ app_port }}
 
-# The firewalld module is part of the ansible.posix collection and you need to install it.
-# ansible-galaxy collection install ansible.posix add it to springPetClinic/meta/main.yml
-# nohup (short for "no hangup") is a Linux and Unix command utility that runs a process or command even after you log out or disconnect from the terminal session
+- name: Create Spring PetClinic systemd service
+  template:
+    src: spring-petclinic.service.j2
+    dest: /etc/systemd/system/spring-petclinic.service
+    mode: '0644'
+  notify:
+    - Reload systemd
+    - Restart Spring PetClinic
 
-- name: Start Spring PetClinic application on port 8082
-  ansible.builtin.shell: >
-    nohup java -jar target/spring-petclinic-*.jar
-    --server.port=8082
-    > /var/log/spring-petclinic.log 2>&1 &
-  args:
-    chdir: "{{ tomcat_home_directory }}/spring-petclinic"
-  become: true
-  become_user: "{{ user_name }}"
+- name: Flush handlers
+  meta: flush_handlers
 
-- name: Allow port 8082 in firewalld
-  ansible.posix.firewalld:
-    port: 8082/tcp
-    zone: public
-    permanent: true
-    state: enabled
-    immediate: true
+- name: Wait for application to start
+  wait_for:
+    port: "{{ app_port }}"
+    delay: 10
+    timeout: 120
